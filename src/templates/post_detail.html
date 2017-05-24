@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% load urlify %}
+{% load crispy_forms_tags %}
+
+
+{% block head_title %}
+{{ instance.title }} | {{ block.super }}
+{% endblock head_title %}
+
+
+ {% block post_detail_link %}
+  <li><a href='{{ instance.get_absolute_url }}'>{{ instance.title }}</a></li>
+  {% endblock %}
+
+
+
+{% block content %}
+
+  <div class='col-sm-6 col-sm-offset-3'>
+    <!-- *********image**************** -->
+    {% if instance.image %}
+    <img src='{{ instance.image.url }}' class='img-responsive' />
+    {% endif %}
+
+    <!-- *********post title**************** -->
+    <h1>{{ title }} <small>{% if instance.draft %}<span style='color:red;'>Draft</span> {% endif %}{{ instance.publish }}</small></h1>
+    <p>Read time: {% if instance.read_time <= 1 %} < 1 Minute {% else %}{{ instance.read_time }} minutes {% endif %}</p>
+    {% if instance.user.get_full_name %}
+    <p>Author: {{ instance.user.get_full_name }}</p>
+    {% endif %}
+
+
+    <div class='row'>
+      <div class='col-sm-12 '>
+      <!-- *********post content**************** -->
+        <div class='post-detail-item'>{{ instance.get_markdown }}</div>
+        <hr/>
+        <br/>
+
+        <div>
+          <!-- *********mark as solved**************** -->
+          {% if request.user.is_authenticated %}
+            {% if instance.is_closed == 0 %}
+              {% if request.user.id == instance.user_id %}
+                <form method="POST" action="mark_closed/" id="mark_as_solved_form"> {% csrf_token %}
+                  <input type='hidden' name='post_id' value='{{ instance.id }}'>
+                    <input type='submit' value='Mark as solved' class='btn btn-default'/>
+                </form>
+              {% endif %}
+            {% endif %}
+          {% endif %}
+
+          <p class='lead'>Comments</p> 
+          <!-- *********check expert group**************** -->
+          {% load has_group %}
+            {% if request.user.is_authenticated %}
+              {% if user|has_group:"experts" %}
+              <p>is expert</p>
+                <form method="POST" action="." id="comment_form"> {% csrf_token %}
+                    {{ comment_form|crispy }}
+                    <input type='submit' value='Post comment' class='btn btn-default'>
+                </form>
+              {% else %}
+                <p> not expert</p>
+              {% endif %}
+            {% else %}
+            <p>You must login to comment </p>
+            {% endif %}
+
+          <hr/>
+
+          <!-- *********show all comments**************** -->
+          {% for comment in comments %}
+            <blockquote>
+              <p>{{ comment.content }}</p>
+              <footer>
+                via {{ comment.user }} | 
+                {{ comment.timestamp|timesince }} ago | Confidence Level: {{ comment.confidence_level }}
+                {% if comment.children.count <= 0 %}
+                  {% if request.user.id == instance.user_id %}
+                  <a class='' href='{{ comment.get_absolute_url }}'>Give response</a>
+                  {% endif%}
+                {% endif %}
+              </footer>
+              <div class='comment-reply'>
+                  {% for child_comment in comment.children %}
+                    <blockquote>
+                    <p>{{ child_comment.content }}</p>
+                    </blockquote>
+                 {% endfor %}
+              </div>
+            </blockquote>
+            <hr/>
+          {% endfor %}
+
+          {% for obj in object_list %}
+          <div class="row">
+            <div class="col-sm-12">
+              <div class="thumbnail">
+                <div class="caption post-detail-item">
+                  <h3><a href='{{ obj.get_absolute_url }}'>{{ obj.title }}</a> <small>{{ obj.publish }}</small></h3>
+                  {% if obj.user.get_full_name %}<p>Author: {{ obj.user.get_full_name }}</p>{% endif %}
+                  {{ obj.get_markdown|truncatechars_html:120 }}
+                  <p><a href="{{ obj.get_absolute_url }}" class="btn btn-primary" role="button">View</a></p>
+                </div>
+              </div>
+            </div>
+          <hr/>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+{% endblock content %}
